@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Chess Game Viewer</title>
+        <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.css" />
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.5.1/jquery.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/chessboard-js/1.0.0/chessboard-1.0.0.min.js"></script>
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/chess.js/0.10.3/chess.min.js"></script>
+        <style>
+            .move-list {
+                display: inline-block;
+                vertical-align: top;
+                margin-left: 20px;
+            }
+            .bold {
+                font-weight: bold;
+            }
+        </style>
+    </head>
+    <body>
+        <input type="text" id="fenInput" placeholder="Enter FEN" />
+        <textarea id="movesInput" placeholder="Enter moves (space separated)"></textarea>
+        <button id="loadGame">Load Game</button>
+        <div id="board" style="width: 400px; display: inline-block"></div>
+        <div class="move-list"></div>
+        <button id="prevBtn">Previous</button>
+        <button id="nextBtn">Next</button>
+
+        <script>
+            var board, game;
+            var currentMoveIndex = 0;
+            var moveList = [];
+
+            $(document).ready(function () {
+                board = Chessboard("board", { position: "start", pieceTheme: "/static/pieces/{piece}.png" });
+                game = new Chess();
+
+                function updateBoard() {
+                    board.position(game.fen());
+                    var moveNumber = 1;
+                    var movesHtml = moveList
+                        .map((move, index) => {
+                            var moveDisplay = "";
+                            if (index % 2 === 0) {
+                                // White's move
+                                moveDisplay = `${moveNumber}. `;
+                                moveNumber++;
+                            }
+                            moveDisplay += `<span class="${index === currentMoveIndex - 1 ? "bold" : ""}">${move}</span>`;
+                            if (index % 2 === 1) {
+                                moveDisplay += "<br>";
+                            }
+                            return moveDisplay;
+                        })
+                        .join(" ");
+                    $(".move-list").html(movesHtml);
+                }
+
+                $("#loadGame").on("click", function () {
+                    var fen = $("#fenInput").val();
+                    var moves = $("#movesInput").val().split(" ");
+
+                    game.load(fen);
+                    moveList = [];
+                    currentMoveIndex = 0;
+                    moves.forEach((move) => {
+                        game.move(move, { sloppy: true });
+                        moveList.push(game.history().slice(-1)[0]);
+                    });
+                    game.reset();
+                    game.load(fen); // Reset to initial position
+                    currentMoveIndex = 0;
+                    updateBoard();
+                });
+
+                $("#prevBtn").on("click", function () {
+                    if (currentMoveIndex > 0) {
+                        game.undo();
+                        currentMoveIndex--;
+                        updateBoard();
+                    }
+                });
+
+                $("#nextBtn").on("click", function () {
+                    if (currentMoveIndex < moveList.length) {
+                        game.move(moveList[currentMoveIndex]);
+                        currentMoveIndex++;
+                        updateBoard();
+                    }
+                });
+
+                $(document).keydown(function (e) {
+                    if (e.which == 37) {
+                        // left arrow key
+                        $("#prevBtn").click();
+                    } else if (e.which == 39) {
+                        // right arrow key
+                        $("#nextBtn").click();
+                    }
+                });
+            });
+        </script>
+    </body>
+</html>
