@@ -1,0 +1,31 @@
+<!-- index.html -->
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>Chess Game Viewer</title>
+        <!-- Include chessboard.js and jQuery -->
+    </head>
+    <body>
+        <div id="board" style="width: 400px"></div>
+        <input type="text" id="pgnInput" placeholder="Enter PGN" />
+        <button id="loadPgn">Load PGN</button>
+        <input type="text" id="fenInput" placeholder="Enter FEN" />
+        <button id="loadFen">Load FEN</button>
+
+        <script>
+            var board = Chessboard("board", "start");
+
+            $("#loadPgn").on("click", function () {
+                $.post("/load_pgn", { pgn: $("#pgnInput").val() }, function (moves) {
+                    // Logic to play moves on the board
+                });
+            });
+
+            $("#loadFen").on("click", function () {
+                $.post("/load_fen", { fen: $("#fenInput").val() }, function (response) {
+                    board.position(response.fen);
+                });
+            });
+        </script>
+    </body>
+</html>
