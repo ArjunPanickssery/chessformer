@@ -20,13 +20,16 @@ def generate_random_position():
     fen += " w - - 0 1"
     # fen = "KR3/5/5/5/4k w - - 0 1"
     # fen = "KR6/8/8/8/8/8/8/7k w - - 0 1"
-    print(fen)
+    # print(fen)
     return fen
 
 
-def find_best_move(process, move_time=5000):
+def find_best_move(process, depth=12, move_time=5000, use_depth=True):
     # Send command to stockfish to find the best move with a specified thinking time
-    process.stdin.write(f"go movetime {move_time}\n")
+    if use_depth:
+        process.stdin.write(f"go depth {depth}\n")
+    else:
+        process.stdin.write(f"go movetime {move_time}\n")
     process.stdin.flush()
     best_move = None
     while True:
@@ -96,7 +99,6 @@ def best_move(fen, executable_path="engine.exe"):
         "uci",
         "setoption name VariantPath value variants.ini",
         "setoption name UCI_Variant value chessformer",
-        "ucinewgame",
     ]
 
     for command in init_commands:
@@ -170,8 +172,61 @@ def generate_legal_fen(board_size):
             fen = fen.replace("1" * n, str(n))
 
     fen += " w - - 0 1"
-    print(fen)
+    # print(fen)
     return fen
+
+
+def generate_all_legal_fens(board_size):
+    def kings_are_legal(wk, bk):
+        return abs(wk[0] - bk[0]) > 1 or abs(wk[1] - bk[1]) > 1
+
+    def is_bk_in_check(bk, wk, wr):
+        # Check if BK and WR are in the same row or column
+        if bk[0] == wr[0]:  # Same row
+            if (bk[1] < wr[1] and not (wk[0] == bk[0] and bk[1] < wk[1] < wr[1])) or (
+                bk[1] > wr[1] and not (wk[0] == bk[0] and wr[1] < wk[1] < bk[1])
+            ):
+                return True
+        if bk[1] == wr[1]:  # Same column
+            if (bk[0] < wr[0] and not (wk[1] == bk[1] and bk[0] < wk[0] < wr[0])) or (
+                bk[0] > wr[0] and not (wk[1] == bk[1] and wr[0] < wk[0] < bk[0])
+            ):
+                return True
+        return False
+
+    def board_to_fen(board):
+        fen_rows = ["".join(row).replace("-", "1") for row in board]
+        fen = "/".join(fen_rows)
+        for n in range(8, 0, -1):
+            fen = fen.replace("1" * n, str(n))
+        return fen
+
+    all_fens = []
+    for wk_x in range(board_size):
+        for wk_y in range(board_size):
+            for wr_x in range(board_size):
+                for wr_y in range(board_size):
+                    if (wk_x, wk_y) != (wr_x, wr_y):
+                        for bk_x in range(board_size):
+                            for bk_y in range(board_size):
+                                if (bk_x, bk_y) != (wk_x, wk_y) and (bk_x, bk_y) != (
+                                    wr_x,
+                                    wr_y,
+                                ):
+                                    if kings_are_legal(
+                                        (wk_x, wk_y), (bk_x, bk_y)
+                                    ) and not is_bk_in_check(
+                                        (bk_x, bk_y), (wk_x, wk_y), (wr_x, wr_y)
+                                    ):
+                                        board = [
+                                            ["-" for _ in range(board_size)]
+                                            for _ in range(board_size)
+                                        ]
+                                        board[wk_x][wk_y] = "K"
+                                        board[wr_x][wr_y] = "R"
+                                        board[bk_x][bk_y] = "k"
+                                        all_fens.append(board_to_fen(board))
+    return all_fens
 
 
 # Generate and print a legal FEN
