@@ -11,14 +11,15 @@ from data import load_from_json, save_to_json
 input_dim = 4  # Input dimension (size of one-hot token)
 output_dim = 16  # Output dimension (size of output one-hot vector)
 d_model = 256  # Dimension of the model
-nhead = 4  # Number of heads in the multiheadattention models
-dim_feedforward = 128  # Dimension of the feedforward network model
+nhead = 8  # Number of heads in the multiheadattention models
+dim_feedforward = 256  # Dimension of the feedforward network model
 # num_tokens = 25  # Number of tokens in the sequence
 batch_size = 256  # Batch size for training
 # num_batches = 100  # Number of batches for training
 learning_rate = 0.01  # Learning rate for the optimizer
 num_epochs = 20
-num_layers = 12
+num_layers = 24
+DATASET_NAME = "vectors_size_5"  # "squarecode_size_5"
 
 
 class CustomDataset(Dataset):
@@ -128,7 +129,7 @@ def load_model(model_name):
 if __name__ == "__main__":
     model = OneLayerTransformer(input_dim, output_dim, d_model, nhead, dim_feedforward)
     dataloader = get_dataloader(
-        "training_data/vectors_size_5.json", batch_size=batch_size
+        f"training_data/{DATASET_NAME}.json", batch_size=batch_size
     )
-    train(model, dataloader, model_name="test_6_layers")
+    train(model, dataloader, model_name="24_layers_huge")
     evaluate(model, dataloader)
