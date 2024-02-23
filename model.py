@@ -1,11 +1,9 @@
-from os import name
-from re import L
 import torch
 import torch.nn as nn
 import torch.optim as optim
-import numpy as np
 from torch.utils.data import Dataset, DataLoader
-from data import load_from_json, save_to_json
+
+from data import load_from_json
 
 # Parameters
 input_dim = 4  # Input dimension (size of one-hot token)
