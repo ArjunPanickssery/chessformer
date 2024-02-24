@@ -1,4 +1,3 @@
-# %%
 from os import name
 from re import L
 import torch
@@ -7,7 +6,8 @@ import torch.optim as optim
 import numpy as np
 import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
-from data import load_from_json, save_to_json
+
+from data import load_from_json
 
 # Parameters
 input_dim = 25  # Input dimension (size of one-hot token)
@@ -150,5 +150,3 @@ if __name__ == "__main__":
     )
     train(model, dataloader, model_name="24_layers_huge_3_examples_100_epochs")
     evaluate(model, dataloader)
-
-# %%
