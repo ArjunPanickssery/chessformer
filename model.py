@@ -1,14 +1,16 @@
+# %%
 from os import name
 from re import L
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import numpy as np
+import torch.nn.functional as F
 from torch.utils.data import Dataset, DataLoader
 from data import load_from_json, save_to_json
 
 # Parameters
-input_dim = 4  # Input dimension (size of one-hot token)
+input_dim = 25  # Input dimension (size of one-hot token)
 output_dim = 16  # Output dimension (size of output one-hot vector)
 d_model = 256  # Dimension of the model
 nhead = 8  # Number of heads in the multiheadattention models
@@ -33,9 +35,9 @@ class CustomDataset(Dataset):
     def __getitem__(self, idx):
         input_sample = self.input_data[idx]
         output_sample = self.output_data[idx]
-        return torch.tensor(input_sample, dtype=torch.long), torch.tensor(
-            output_sample, dtype=torch.long
-        )
+        return torch.tensor(input_sample, dtype=torch.long), F.one_hot(
+            torch.tensor(output_sample), output_dim
+        ).to(torch.float32)
 
 
 class OneLayerTransformer(nn.Module):
@@ -46,15 +48,17 @@ class OneLayerTransformer(nn.Module):
             d_model=d_model, nhead=nhead, dim_feedforward=dim_feedforward
         )
         self.transformer_decoder = nn.TransformerDecoder(
-            self.decoder_layer, num_layers=1
+            self.decoder_layer, num_layers=num_layers
         )
         self.fc_out = nn.Linear(d_model, output_dim)
 
     def forward(self, src):
+        print(src.shape)
         src = self.embedding(src)
+        print(src.shape)
         memory = torch.zeros(src.size(0), src.size(1), d_model).to(src.device)
         output = self.transformer_decoder(src, memory)
-
+        print(output.shape)
         # Use the state of the last token for classification
         last_token_state = output[:, -1, :]
         return self.fc_out(last_token_state)
@@ -69,7 +73,7 @@ def get_dataloader(zipped_data_path, batch_size=32):
     print(f"Loading {len(zipped_data)} data-points from {zipped_data_path}")
 
     # Unzip the input and output data
-    input_data, output_data = zip(*zipped_data)
+    input_data, output_data = zip(*zipped_data[:3])
 
     # Create the custom dataset
     dataset = CustomDataset(input_data, output_data)
@@ -82,12 +86,21 @@ def train(model, dataloader, model_name) -> None:
     loss_function = nn.CrossEntropyLoss()
     optimizer = optim.AdamW(model.parameters(), lr=learning_rate)
 
+    model.train()
     # Training loop
     for epoch in range(num_epochs):
         total_loss = 0
         for batch_idx, (inputs, labels) in enumerate(dataloader):
+            print("\n\n---")
+            print(inputs)
             optimizer.zero_grad()
             output = model(inputs)
+            # print(output.dtype, labels.dtype)
+            # print(output.shape, labels.shape)
+            print("---")
+            print(output)
+            print(torch.max(output, 1)[1])
+            print(labels)
             loss = loss_function(output, labels)
             loss.backward()
             optimizer.step()
@@ -109,9 +122,13 @@ def evaluate(model, dataloader):
     with torch.no_grad():  # No need to track gradients for evaluation
         for inputs, labels in dataloader:
             outputs = model(inputs)
+            print(outputs)
             _, predicted = torch.max(outputs.data, 1)
             total += labels.size(0)
-            correct += (predicted == labels).sum().item()
+            _, actual = torch.max(labels.data, 1)
+            print(predicted)
+            print(actual)
+            correct += (predicted == actual).sum().item()
 
     accuracy = 100 * correct / total
     print(f"Accuracy on the dataset: {accuracy:.2f}%")
@@ -131,5 +148,7 @@ if __name__ == "__main__":
     dataloader = get_dataloader(
         f"training_data/{DATASET_NAME}.json", batch_size=batch_size
     )
-    train(model, dataloader, model_name="24_layers_huge")
+    train(model, dataloader, model_name="24_layers_huge_3_examples_100_epochs")
     evaluate(model, dataloader)
+
+# %%
