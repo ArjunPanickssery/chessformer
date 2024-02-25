@@ -1,3 +1,5 @@
+import os
+
 import torch
 import torch.nn as nn
 import math
@@ -67,9 +69,9 @@ def evaluate_model(model, dataloader, device):
 
 # Your parameters remain unchanged
 INPUT_DIM = 4
-EMBED_DIM = 4
-NUM_HEADS = 1
-HIDDEN_DIM = 256
+EMBED_DIM = 32
+NUM_HEADS = 2
+HIDDEN_DIM = 1024
 NUM_CLASSES = 17
 BATCH_SIZE = 256
 EPOCHS = 20000
@@ -112,3 +114,9 @@ for epoch in range(EPOCHS):
         print(f'Epoch {epoch + 1}: Accuracy = {accuracy * 100:.2f}%')
     if epoch % 1 == 0:
         print(f'Epoch {epoch + 1}, Loss: {loss.item()}')
+
+    if (epoch + 1) % 100 == 0:
+        model_save_path = f'model_checkpoints/model_epoch_{epoch + 1}.pth'
+        os.makedirs(os.path.dirname(model_save_path), exist_ok=True)
+        torch.save(model.state_dict(), model_save_path)
+        print(f'Model saved at epoch {epoch + 1}')
