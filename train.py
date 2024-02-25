@@ -1,73 +1,95 @@
+import torch
+from torch.utils.data import Dataset, DataLoader
 import json
+import torch.nn as nn
 
-from transformers import EncoderDecoderConfig, EncoderDecoderModel, BertTokenizer, BertConfig, Trainer, TrainingArguments
-from datasets import Dataset
 
-# Load your data
-with open('training_data/mappings_size_5.json') as f:
-    mappings = json.load(f)
+class SequencesDataset(Dataset):
+    def __init__(self, file_path):
+        with open(file_path, 'r') as f:
+            self.data = json.load(f)
 
-inputs = [key for key in mappings.keys()]
-outputs = [value for value in mappings.values()]
+    def __len__(self):
+        return len(self.data)
 
-# Convert data to the correct format for Dataset.from_dict
-data = {"input": inputs, "output": outputs}
-dataset = Dataset.from_dict(data)
+    def __getitem__(self, idx):
+        sequence, label = self.data[idx]
+        return torch.tensor(sequence, dtype=torch.long), torch.tensor(label, dtype=torch.long)
 
-# Split dataset into training and validation
-train_test_split = dataset.train_test_split(test_size=0.1)
-train_dataset = train_test_split["train"]
-test_dataset = train_test_split["test"]
 
-# Initialize tokenizer
-tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
+class TransformerClassifier(nn.Module):
+    def __init__(self, input_dim, embed_dim, num_heads, hidden_dim, num_classes):
+        super(TransformerClassifier, self).__init__()
+        self.embedding = nn.Embedding(input_dim, embed_dim)
+        encoder_layer = nn.TransformerEncoderLayer(d_model=embed_dim, nhead=num_heads, dim_feedforward=hidden_dim,
+                                                   batch_first=True)
+        self.transformer_encoder = nn.TransformerEncoder(encoder_layer, num_layers=1)
+        self.fc = nn.Linear(embed_dim * 25, num_classes)
 
-def process_data_to_model_inputs(batch):
-    inputs = tokenizer(batch["input"], padding="max_length", truncation=True, max_length=128)
-    outputs = tokenizer(batch["output"], padding="max_length", truncation=True, max_length=128)
+        self.test_fc = nn.Linear(800, 21)
 
-    batch["input_ids"] = inputs.input_ids
-    batch["attention_mask"] = inputs.attention_mask
-    batch["decoder_input_ids"] = outputs.input_ids
-    batch["labels"] = outputs.input_ids.copy()
+    def forward(self, x):
+        x = self.embedding(x)
+        x = self.transformer_encoder(x)
+        x = self.fc(x.view(-1, 25 * EMBED_DIM))
 
-    batch["labels"] = [[-100 if token == tokenizer.pad_token_id else token for token in labels] for labels in batch["labels"]]
-    return batch
+        return x
 
-# Process data
-train_dataset = train_dataset.map(process_data_to_model_inputs, batched=True)
-test_dataset = test_dataset.map(process_data_to_model_inputs, batched=True)
-train_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "decoder_input_ids", "labels"])
-test_dataset.set_format(type="torch", columns=["input_ids", "attention_mask", "decoder_input_ids", "labels"])
 
-# Create configurations
-encoder_config = BertConfig(vocab_size=tokenizer.vocab_size, is_decoder=False, hidden_size=768, num_hidden_layers=6)
-decoder_config = BertConfig(vocab_size=tokenizer.vocab_size, is_decoder=True, hidden_size=768, num_hidden_layers=6, add_cross_attention=True)
+def evaluate_model(model, dataloader, device):
+    model.eval()  # Set the model to evaluation mode
+    correct, total = 0, 0
+    with torch.no_grad():  # No need to track gradients during evaluation
+        for sequences, labels in dataloader:
+            sequences, labels = sequences.to(device), labels.to(device)
+            outputs = model(sequences)
+            _, predicted = torch.max(outputs, 1)
+            total += labels.size(0)
+            correct += (predicted == labels).sum().item()
 
-# Create an EncoderDecoderConfig
-config = EncoderDecoderConfig.from_encoder_decoder_configs(encoder_config, decoder_config)
+    accuracy = correct / total
+    model.train()  # Set the model back to training mode
+    return accuracy
 
-# Initialize model from configuration
-model = EncoderDecoderModel(config=config)
 
-# Training arguments
-training_args = TrainingArguments(
-    output_dir="./model_output",
-    per_device_train_batch_size=4,  # Adjust batch size according to your GPU memory
-    per_device_eval_batch_size=4,
-    evaluation_strategy="epoch",
-    save_strategy="epoch",
-    num_train_epochs=3,  # Adjust epochs according to your dataset size
-    logging_dir='./logs',
-)
+# Parameters
+INPUT_DIM = 4
+EMBED_DIM = 32
+NUM_HEADS = 2
+HIDDEN_DIM = 128
+NUM_CLASSES = 17
+BATCH_SIZE = 256
+EPOCHS = 20000
 
-# Initialize Trainer
-trainer = Trainer(
-    model=model,
-    args=training_args,
-    train_dataset=train_dataset,
-    eval_dataset=test_dataset,
-)
+# Load Dataset
+dataset = SequencesDataset('training_data/vectors_size_5.json')
+dataloader = DataLoader(dataset, batch_size=BATCH_SIZE, shuffle=True)
 
-# Train the model
-trainer.train()
+# Initialize Model
+model = TransformerClassifier(INPUT_DIM, EMBED_DIM, NUM_HEADS, HIDDEN_DIM, NUM_CLASSES)
+
+# Loss and Optimizer
+criterion = nn.CrossEntropyLoss()
+optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
+
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+model.to(device)  # Move model to the appropriate device
+
+for epoch in range(EPOCHS):
+    # Training step
+    for sequences, labels in dataloader:
+        sequences, labels = sequences.to(device), labels.to(device)
+        optimizer.zero_grad()
+        outputs = model(sequences)
+        loss = criterion(outputs, labels)
+        loss.backward()
+        optimizer.step()
+
+    # Every 100 epochs, evaluate the model
+    if (epoch + 1) % 10 == 0:
+        accuracy = evaluate_model(model, dataloader, device)
+        print(f'Epoch {epoch + 1}: Accuracy = {accuracy * 100:.2f}%')
+
+    # Optionally, print training loss or other information every epoch
+    if epoch % 1 == 0:
+        print(f'Epoch {epoch + 1}, Loss: {loss.item()}')
