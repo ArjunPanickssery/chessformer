@@ -67,9 +67,9 @@ def evaluate_model(model, dataloader, device):
 
 # Your parameters remain unchanged
 INPUT_DIM = 4
-EMBED_DIM = 32
-NUM_HEADS = 2
-HIDDEN_DIM = 1024
+EMBED_DIM = 4
+NUM_HEADS = 1
+HIDDEN_DIM = 256
 NUM_CLASSES = 17
 BATCH_SIZE = 256
 EPOCHS = 20000
