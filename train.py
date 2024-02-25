@@ -4,6 +4,7 @@ import math
 import json
 from torch.utils.data import Dataset, DataLoader
 
+
 class SequencesDataset(Dataset):
     def __init__(self, file_path):
         with open(file_path, 'r') as f:
@@ -15,6 +16,7 @@ class SequencesDataset(Dataset):
     def __getitem__(self, idx):
         sequence, label = self.data[idx]
         return torch.tensor(sequence, dtype=torch.long), torch.tensor(label, dtype=torch.long)
+
 
 class PositionalEncoding(nn.Module):
     def __init__(self, d_model, max_len=5000):
@@ -28,6 +30,7 @@ class PositionalEncoding(nn.Module):
 
     def forward(self, x):
         return x + self.encoding[:, :x.size(1)].detach()
+
 
 class TransformerClassifier(nn.Module):
     def __init__(self, input_dim, embed_dim, num_heads, hidden_dim, num_classes, max_seq_length=25):
@@ -46,6 +49,7 @@ class TransformerClassifier(nn.Module):
         x = self.fc(x.view(-1, 25 * EMBED_DIM))  # Make sure to adjust this according to your sequence length
         return x
 
+
 def evaluate_model(model, dataloader, device):
     model.eval()  # Set the model to evaluation mode
     correct, total = 0, 0
@@ -59,6 +63,7 @@ def evaluate_model(model, dataloader, device):
     accuracy = correct / total
     model.train()  # Set the model back to training mode
     return accuracy
+
 
 # Your parameters remain unchanged
 INPUT_DIM = 4
@@ -82,6 +87,14 @@ optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model.to(device)  # Move model to the appropriate device
+
+
+def print_num_params(model):
+    num_params = sum(p.numel() for p in model.parameters())
+    print(f'Number of parameters: {num_params}')
+
+
+print_num_params(model)
 
 for epoch in range(EPOCHS):
     # Training step
