@@ -69,8 +69,8 @@ def evaluate_model(model, dataloader, device):
 
 # Your parameters remain unchanged
 INPUT_DIM = 4
-EMBED_DIM = 32
-NUM_HEADS = 2
+EMBED_DIM = 16
+NUM_HEADS = 1
 HIDDEN_DIM = 1024
 NUM_CLASSES = 17
 BATCH_SIZE = 256
@@ -85,7 +85,7 @@ model = TransformerClassifier(INPUT_DIM, EMBED_DIM, NUM_HEADS, HIDDEN_DIM, NUM_C
 
 # Loss and Optimizer
 criterion = nn.CrossEntropyLoss()
-optimizer = torch.optim.Adam(model.parameters(), lr=0.0001)
+optimizer = torch.optim.Adam(model.parameters(), lr=0.001)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 model.to(device)  # Move model to the appropriate device
@@ -116,7 +116,7 @@ for epoch in range(EPOCHS):
         print(f'Epoch {epoch + 1}, Loss: {loss.item()}')
 
     if (epoch + 1) % 100 == 0:
-        model_save_path = f'model_checkpoints/model_epoch_{epoch + 1}.pth'
+        model_save_path = f'model_checkpoints_lr_0.001/model_epoch_{epoch + 1}.pth'
         os.makedirs(os.path.dirname(model_save_path), exist_ok=True)
         torch.save(model.state_dict(), model_save_path)
         print(f'Model saved at epoch {epoch + 1}')
